@@ -1,0 +1,28 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Module>
+	<Name value="Auto-Armor Upgrade"/>
+	<Id value="AutoArmorUpgrade"/>
+	<Version value="v1.0.0"/>
+	<Official value="false"/>
+	<ModuleCategory value="Singleplayer"/>
+	<!--<SingleplayerModule value="true"/>-->
+	<!--<MultiplayerModule value="false"/>-->
+	<ModuleType value="Community"/>
+
+	<DependedModules>
+		<DependedModule Id="Native" DependentVersion="v1.3.15.0"/>
+		<DependedModule Id="SandBoxCore" DependentVersion="v1.3.15.0"/>
+		<DependedModule Id="Sandbox" DependentVersion="v1.3.15.0"/>
+		<DependedModule Id="CustomBattle" DependentVersion="v1.3.15.0"/>
+		<DependedModule Id="StoryMode" DependentVersion="v1.3.15.0"/>
+	</DependedModules>
+
+	<SubModules>
+		<SubModule>
+			<Name value="AutoArmorUpgrade"/>
+			<DLLName value="AutoArmorUpgrade.dll"/>
+			<SubModuleClassType value="AutoArmorUpgrade.MySubModule"/>
+		</SubModule>
+	</SubModules>
+	<Xmls/>
+</Module>

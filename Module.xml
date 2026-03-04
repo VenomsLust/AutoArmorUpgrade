@@ -1,0 +1,7 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<Module>
+	<Name value="Auto-Armor Upgrade"/>
+	<Id value="AutoArmorUpgrade"/>
+	<Version value="1.0.0"/>
+	<SingleplayerModule value="true"/>
+</Module>
