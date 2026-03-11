@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using TaleWorlds.CampaignSystem;
+using TaleWorlds.CampaignSystem.CharacterDevelopment;
 using TaleWorlds.CampaignSystem.GameMenus;
 using TaleWorlds.CampaignSystem.Party;
 using TaleWorlds.CampaignSystem.Roster;
@@ -19,12 +20,6 @@ namespace AutoArmorUpgrade {
     public class AutoArmorBehavior : CampaignBehaviorBase {
 
         private bool _pendingUpgrade = true;
-
-        private Dictionary<ItemObject.ItemTypeEnum, List<EquipmentElement>> sortedArmor = new Dictionary<ItemObject.ItemTypeEnum, List<EquipmentElement>>();
-
-        private List<EquipmentElement> sortedHorseArmor = new List<EquipmentElement>();
-
-        private List<EquipmentElement> sortedHorses = new List<EquipmentElement>();
 
 
         /// <summary>
@@ -94,83 +89,6 @@ namespace AutoArmorUpgrade {
 
 
         /// <summary>
-        /// Calculates the armor score for the specified equipment element based on its protective values and weight.
-        /// </summary>
-        /// <remarks>The armor score is determined by summing the modified armor values for the head,
-        /// body, legs, and arms, then subtracting half the element's weight. This provides a balance between protection
-        /// and encumbrance.</remarks>
-        /// <param name="element">The equipment element for which to calculate the armor score. Must not be empty.</param>
-        /// <returns>A floating-point value representing the calculated armor score. Returns -1 if the equipment element is
-        /// empty.</returns>
-        public float CalculateArmorScore(EquipmentElement element) {
-            if (element.IsEmpty || element.Item == null) {
-                return -1f;
-            }
-
-            return element.GetModifiedHeadArmor() + element.GetModifiedBodyArmor() + element.GetModifiedLegArmor() + element.GetModifiedArmArmor() - (element.Weight * 0.5f);
-        }
-
-
-        /// <summary>
-        /// Calculates the armor score for a horse based on the specified equipment element.
-        /// </summary>
-        /// <param name="element">The equipment element representing the horse armor to evaluate. Must not be empty.</param>
-        /// <returns>A floating-point value representing the modified body armor score of the horse. Returns -1 if the equipment
-        /// element is empty.</returns>
-        public float CalculateHorseArmorScore(EquipmentElement element) {
-            if (element.IsEmpty) {
-                return -1f;
-            }
-            return element.GetModifiedMountBodyArmor();
-        }
-
-
-        /// <summary>
-        /// Calculates a composite score for a mount based on its speed, maneuverability, and charge damage attributes.
-        /// </summary>
-        /// <remarks>The score is determined by weighting the mount's speed, maneuverability, and charge
-        /// damage. This method is intended for use in scenarios where mounts are compared or ranked based on their
-        /// performance attributes.</remarks>
-        /// <param name="element">The equipment element representing the mount to evaluate. Must contain a valid item with a horse component.</param>
-        /// <returns>A floating-point value representing the calculated mount score. Returns -1 if the element is empty or does
-        /// not contain a valid horse component.</returns>
-        public float CalculateMountScore(EquipmentElement element) {
-            if (element.Item?.HorseComponent is HorseComponent horse) {
-                return horse.Speed * 10.0f + horse.Maneuver * 0.10f + horse.ChargeDamage * 0.10f;
-            }
-
-            return -1f;
-        }
-
-
-        /// <summary>
-        /// Determines the item type associated with a specified equipment slot.
-        /// </summary>
-        /// <param name="slot">The equipment slot for which to retrieve the corresponding item type.</param>
-        /// <returns>The item type that corresponds to the specified equipment slot.</returns>
-        /// <exception cref="ArgumentException">Thrown if the specified slot does not correspond to a valid equipment slot.</exception>
-        private ItemObject.ItemTypeEnum GetItemTypeForSlot(EquipmentIndex slot) {
-            switch (slot) {
-                case EquipmentIndex.Head:
-                    return ItemObject.ItemTypeEnum.HeadArmor;
-                case EquipmentIndex.Body:
-                    return ItemObject.ItemTypeEnum.BodyArmor;
-                case EquipmentIndex.Leg:
-                    return ItemObject.ItemTypeEnum.LegArmor;
-                case EquipmentIndex.Gloves:
-                    return ItemObject.ItemTypeEnum.HandArmor;
-                case EquipmentIndex.Cape:
-                    return ItemObject.ItemTypeEnum.Cape;
-                case EquipmentIndex.HorseHarness:
-                    return ItemObject.ItemTypeEnum.HorseHarness;
-                case EquipmentIndex.Horse:
-                    return ItemObject.ItemTypeEnum.Horse;
-                default:
-                    throw new ArgumentException("Invalid equipment slot: " + slot);
-            }
-        }
-
-        /// <summary>
         /// Upgrades the equipment of all hero characters in the specified party using available armor items from the
         /// party's item roster.
         /// </summary>
@@ -179,149 +97,138 @@ namespace AutoArmorUpgrade {
         /// armor score. If either the member roster or item roster is null, the method performs no action.</remarks>
         /// <param name="party">The party whose hero members will be upgraded. Must have a non-null member and item roster.</param>
         private void UpgradeAllHeroes(PartyBase party) {
-            if (party.MemberRoster == null || party.ItemRoster == null) {
-                return;
-            }
+            try {
+                if (party.MemberRoster == null || party.ItemRoster == null) {
+                    return;
+                }
 
-            // First, we loop through the loot and organize all armor pieces by their type (head, body, leg, gloves, cape)
-            foreach (ItemRosterElement element in party.ItemRoster) {
-                if (0 < element.Amount && element.EquipmentElement.Item is ItemObject item) {
-                    ItemObject.ItemTypeEnum type = item.ItemType;
-                    if (type == ItemObject.ItemTypeEnum.Invalid) {
-                        continue; // Skip items that don't have a valid type
+                Dictionary<ItemObject.ItemTypeEnum, List<EquipmentElement>> buckets = new Dictionary<ItemObject.ItemTypeEnum, List<EquipmentElement>>();
+
+                // First, we loop through the loot and organize all armor pieces by their type (head, body, leg, gloves, cape)
+                foreach (ItemRosterElement element in party.ItemRoster) {
+                    if (0 < element.Amount && element.EquipmentElement.Item is ItemObject item) {
+                        ItemObject.ItemTypeEnum type = item.ItemType;
+                        if (type == ItemObject.ItemTypeEnum.Invalid) {
+                            continue; // Skip items that don't have a valid type
+                        }
+
+                        if (!buckets.ContainsKey(type)) {
+                            buckets[type] = new List<EquipmentElement>();
+                        }
+                        buckets[type].Add(element.EquipmentElement);
                     }
-                    switch (type) {
-                        case ItemObject.ItemTypeEnum.Horse:
-                            sortedHorses.Add(element.EquipmentElement);
-                            continue;
-                        case ItemObject.ItemTypeEnum.OneHandedWeapon:
-                            continue;
-                        case ItemObject.ItemTypeEnum.TwoHandedWeapon:
-                            continue;
-                        case ItemObject.ItemTypeEnum.Polearm:
-                            continue;
-                        case ItemObject.ItemTypeEnum.Arrows:
-                            continue;
-                        case ItemObject.ItemTypeEnum.Bolts:
-                            continue;
-                        case ItemObject.ItemTypeEnum.SlingStones:
-                            continue;
-                        case ItemObject.ItemTypeEnum.Shield:
-                            continue;
-                        case ItemObject.ItemTypeEnum.Bow:
-                            continue;
-                        case ItemObject.ItemTypeEnum.Crossbow:
-                            continue;
-                        case ItemObject.ItemTypeEnum.Sling:
-                            continue;
-                        case ItemObject.ItemTypeEnum.Thrown:
-                            continue;
-                        case ItemObject.ItemTypeEnum.HeadArmor:
-                        case ItemObject.ItemTypeEnum.BodyArmor:
-                        case ItemObject.ItemTypeEnum.LegArmor:
-                        case ItemObject.ItemTypeEnum.HandArmor:
-                        case ItemObject.ItemTypeEnum.Cape:
-                            if (!sortedArmor.ContainsKey(type)) {
-                                sortedArmor[type] = new List<EquipmentElement>();
+                }
+
+                foreach (KeyValuePair<ItemObject.ItemTypeEnum, List<EquipmentElement>> kvp in buckets) {
+                    if (1 < kvp.Value.Count) {
+                        if (EquipmentScores.GetScoreFunc(kvp.Key) is Func<EquipmentElement, float> score) {
+                            kvp.Value.Sort((a, b) => score(b).CompareTo(score(a)));
+                        }
+                    }
+                }
+
+                for (int i = 0; i < party.MemberRoster.Count; i++) {
+                    TroopRosterElement member = party.MemberRoster.GetElementCopyAtIndex(i);
+                    if (member.Character?.HeroObject is Hero hero && hero.IsAlive) {
+                        if (buckets.TryGetValue(ItemObject.ItemTypeEnum.HeadArmor, out var headBucket)) {
+                            UpgradeHeroArmor(hero, party.ItemRoster, headBucket, EquipmentIndex.Head);
+                        }
+                        if (buckets.TryGetValue(ItemObject.ItemTypeEnum.BodyArmor, out var bodyBucket)) {
+                            UpgradeHeroArmor(hero, party.ItemRoster, bodyBucket, EquipmentIndex.Body);
+                        }
+                        if (buckets.TryGetValue(ItemObject.ItemTypeEnum.LegArmor, out var legBucket)) {
+                            UpgradeHeroArmor(hero, party.ItemRoster, legBucket, EquipmentIndex.Leg);
+                        }
+                        if (buckets.TryGetValue(ItemObject.ItemTypeEnum.HandArmor, out var handBucket)) {
+                            UpgradeHeroArmor(hero, party.ItemRoster, handBucket, EquipmentIndex.Gloves);
+                        }
+                        if (buckets.TryGetValue(ItemObject.ItemTypeEnum.Cape, out var capeBucket)) {
+                            UpgradeHeroArmor(hero, party.ItemRoster, capeBucket, EquipmentIndex.Cape);
+                        }
+
+                        if (!hero.BattleEquipment[EquipmentIndex.Horse].IsEmpty) {
+                            if (buckets.TryGetValue(ItemObject.ItemTypeEnum.HorseHarness, out var horseArmorBucket)) {
+                                UpgradeHeroArmor(hero, party.ItemRoster, horseArmorBucket, EquipmentIndex.HorseHarness);
                             }
-                            sortedArmor[type].Add(element.EquipmentElement);
-                            continue;
-                        case ItemObject.ItemTypeEnum.HorseHarness:
-                            sortedHorseArmor.Add(element.EquipmentElement);
-                            continue;
-                        default:
-                            continue; // Not an armor piece we care about
-                    }
-                }
-            }
-
-            foreach (List<EquipmentElement> list in sortedArmor.Values) {
-                if (1 < list.Count) {
-                    list.Sort((a, b) => CalculateArmorScore(b).CompareTo(CalculateArmorScore(a)));
-                }
-            }
-
-            if (1 < sortedHorseArmor.Count) {
-                sortedHorseArmor.Sort((a, b) => CalculateHorseArmorScore(b).CompareTo(CalculateHorseArmorScore(a)));
-            }
-
-            if (1 < sortedHorses.Count) {
-                sortedHorses.Sort((a, b) => CalculateMountScore(b).CompareTo(CalculateMountScore(a)));
-            }
-
-            for (int i = 0; i < party.MemberRoster.Count; i++) {
-                TroopRosterElement member = party.MemberRoster.GetElementCopyAtIndex(i);
-                if (member.Character?.HeroObject is Hero hero && hero.IsAlive) {
-                    UpgradeHeroArmor(hero, party.ItemRoster, EquipmentIndex.Head);
-                    UpgradeHeroArmor(hero, party.ItemRoster, EquipmentIndex.Body);
-                    UpgradeHeroArmor(hero, party.ItemRoster, EquipmentIndex.Leg);
-                    UpgradeHeroArmor(hero, party.ItemRoster, EquipmentIndex.Gloves);
-                    UpgradeHeroArmor(hero, party.ItemRoster, EquipmentIndex.Cape);
-                    if (!hero.BattleEquipment[EquipmentIndex.Horse].IsEmpty) {
-                        UpgradeHeroHorseArmor(hero, party.ItemRoster);
-                        UpgradeHeroHorse(hero, party.ItemRoster);
-                    }
-                }
-            }
-
-            sortedArmor.Clear();
-            sortedHorseArmor.Clear();
-            sortedHorses.Clear();
-        }
-
-
-        /// <summary>
-        /// Upgrades the specified hero's armor in the given equipment slot by replacing it with the highest-scoring
-        /// available armor from the roster.
-        /// </summary>
-        /// <remarks>If a better armor item is available in the roster for the specified slot, it will be
-        /// equipped on the hero and the previous armor will be returned to the roster. The method does not perform any
-        /// upgrade if no suitable armor is found.</remarks>
-        /// <param name="hero">The hero whose armor will be upgraded. Cannot be null.</param>
-        /// <param name="itemRoster">The item roster containing available armor items for swapping. Cannot be null.</param>
-        /// <param name="slot">The equipment slot to upgrade, indicating which piece of armor will be replaced.</param>
-        private void UpgradeHeroArmor(Hero hero, ItemRoster itemRoster, EquipmentIndex slot) {
-            ItemObject.ItemTypeEnum targetType = GetItemTypeForSlot(slot);
-            if (sortedArmor.ContainsKey(targetType) && sortedArmor[targetType] is List<EquipmentElement> list) {
-                if (0 < list.Count && list[0] is EquipmentElement element) {
-                    if (CalculateArmorScore(hero.BattleEquipment[slot]) < CalculateArmorScore(element)) {
-                        int index = -1;
-                        EquipmentElement old = ApplySwap(hero, slot, element, itemRoster, out index);
-                        if (index < 0 || itemRoster.GetElementNumber(index) < 1 || !itemRoster.GetElementCopyAtIndex(index).EquipmentElement.IsEqualTo(element)) {
-                            list.RemoveAt(0);
+                            if (buckets.TryGetValue(ItemObject.ItemTypeEnum.Horse, out var horseBucket)) {
+                                UpgradeHeroHorse(hero, party.ItemRoster, horseBucket);
+                            }
                         }
-                        if (!old.IsEmpty) {
-                            list.Add(old);
-                            list.Sort((a, b) => CalculateArmorScore(b).CompareTo(CalculateArmorScore(a)));
-                        }
+
+                        UpgradeHeroWeaponSlot(hero, party.ItemRoster, buckets, EquipmentIndex.Weapon0);
+                        UpgradeHeroWeaponSlot(hero, party.ItemRoster, buckets, EquipmentIndex.Weapon1);
+                        UpgradeHeroWeaponSlot(hero, party.ItemRoster, buckets, EquipmentIndex.Weapon2);
+                        UpgradeHeroWeaponSlot(hero, party.ItemRoster, buckets, EquipmentIndex.Weapon3);
                     }
                 }
+            } catch (Exception e) {
+                InformationManager.DisplayMessage(new InformationMessage($"Exception caught in UpgradeAllHeroes! {e.Message}.", Color.FromUint(0xFFFFFF00)));
             }
         }
 
 
         /// <summary>
-        /// Upgrades the horse armor equipped by the specified hero using the highest-scoring available armor from the
-        /// sorted list.
+        /// 
         /// </summary>
-        /// <remarks>If the hero's current horse armor is replaced, the previous armor is returned to the
-        /// sorted list and re-sorted by score. This method does not perform any upgrade if no suitable horse armor is
-        /// available.</remarks>
-        /// <param name="hero">The hero whose horse armor will be upgraded. Cannot be null.</param>
-        /// <param name="itemRoster">The item roster containing available equipment for swapping horse armor. Cannot be null.</param>
-        private void UpgradeHeroHorseArmor(Hero hero, ItemRoster itemRoster) {
-            if (0 < sortedHorseArmor.Count && sortedHorseArmor[0] is EquipmentElement element) {
-                if (CalculateHorseArmorScore(hero.BattleEquipment[EquipmentIndex.HorseHarness]) < CalculateHorseArmorScore(element)) {
-                    int index = -1;
-                    EquipmentElement old = ApplySwap(hero, EquipmentIndex.HorseHarness, element, itemRoster, out index);
-                    if (index < 0 || itemRoster.GetElementNumber(index) < 1 || !itemRoster.GetElementCopyAtIndex(index).EquipmentElement.IsEqualTo(element)) {
-                        sortedHorseArmor.RemoveAt(0);
+        /// <param name="list"></param>
+        /// <param name="element"></param>
+        private static void SortedInsert(List<EquipmentElement> list, EquipmentElement element, Func<EquipmentElement, float> getScore) {
+            try {
+                if (list.Count == 0) {
+                    list.Add(element);
+                    return;
+                }
+                int low = 0;
+                int high = list.Count - 1;
+                float score = getScore(element);
+                if (score < getScore(list[low])) {
+                    low++;
+                    if (0 < high && getScore(list[high]) < score) {
+                        high--;
+                        while (low < high) {
+                            int mid = (low + high) >> 1;
+                            float iScore = getScore(list[mid]);
+                            if (iScore < score) {
+                                high = mid - 1;
+                            } else if (score < iScore) {
+                                low = mid + 1;
+                            } else {
+                                list.Insert(mid, element);
+                                return;
+                            }
+                        }
+                        list.Insert(low, element);
+                    } else {
+                        list.Add(element);
                     }
-                    if (!old.IsEmpty) {
-                        sortedHorseArmor.Add(old);
-                        sortedHorseArmor.Sort((a, b) => CalculateHorseArmorScore(b).CompareTo(CalculateHorseArmorScore(a)));
+                } else {
+                    list.Insert(0, element);
+                }
+            } catch (Exception e) {
+                InformationManager.DisplayMessage(new InformationMessage($"Exception caught in SortedInsert! {e.Message}.", Color.FromUint(0xFFFFFF00)));
+            }
+        }
+
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="hero"></param>
+        /// <param name="inventory"></param>
+        /// <param name="sorted"></param>
+        /// <param name="slot"></param>
+        private static void UpgradeHeroArmor(Hero hero, ItemRoster inventory, List<EquipmentElement> sorted, EquipmentIndex slot) {
+            try {
+                if (0 < sorted.Count && sorted[0] is EquipmentElement top) {
+                    EquipmentElement existing = hero.BattleEquipment[slot];
+                    if (EquipmentScores.GetScoreFunc(top.Item.ItemType) is Func<EquipmentElement, float> score) {
+                        if (score(existing) < score(top)) {
+                            DoSwap(hero, top, inventory, sorted, slot);
+                        }
                     }
                 }
+            } catch (Exception e) {
+                InformationManager.DisplayMessage(new InformationMessage($"Exception caught in UpgradeHeroArmor! {e.Message}.", Color.FromUint(0xFFFFFF00)));
             }
         }
 
@@ -334,58 +241,161 @@ namespace AutoArmorUpgrade {
         /// horse list and re-sorted by score. This method does not perform any action if no suitable horse is available
         /// in the sorted list.</remarks>
         /// <param name="hero">The hero whose horse equipment will be upgraded. Cannot be null.</param>
-        /// <param name="itemRoster">The item roster used to manage equipment changes during the upgrade process. Cannot be null.</param>
-        private void UpgradeHeroHorse(Hero hero, ItemRoster itemRoster) {
-            float currentScore = CalculateMountScore(hero.BattleEquipment[EquipmentIndex.Horse]);
-            for (int i = 0; i < sortedHorses.Count; i++) {
-                if (sortedHorses[i] is EquipmentElement element) {
-                    if (currentScore < CalculateMountScore(element)) {
-                        if (element.Item.Difficulty <= hero.GetSkillValue(DefaultSkills.Riding)) {
-                            int index = -1;
-                            EquipmentElement old = ApplySwap(hero, EquipmentIndex.Horse, element, itemRoster, out index);
-                            if (index < 0 || itemRoster.GetElementNumber(index) < 1 || !itemRoster.GetElementCopyAtIndex(index).EquipmentElement.IsEqualTo(element)) {
-                                sortedHorses.RemoveAt(i);
+        /// <param name="inventory">The item roster used to manage equipment changes during the upgrade process. Cannot be null.</param>
+        private void UpgradeHeroHorse(Hero hero, ItemRoster inventory, List<EquipmentElement> sorted) {
+            try {
+                if (0 < sorted.Count) {
+                    EquipmentElement existing = hero.BattleEquipment[EquipmentIndex.Horse];
+                    if (EquipmentScores.GetScoreFunc(ItemObject.ItemTypeEnum.Horse) is Func<EquipmentElement, float> getScore) {
+                        float currentScore = getScore(existing);
+                        for (int i = 0; i < sorted.Count; i++) {
+                            if (sorted[i] is EquipmentElement element) {
+                                if (currentScore < getScore(element)) {
+                                    if (element.Item.Difficulty <= hero.GetSkillValue(DefaultSkills.Riding)) {
+                                        DoSwap(hero, element, inventory, sorted, EquipmentIndex.Horse);
+                                        break;
+                                    }
+                                } else {
+                                    break;
+                                }
                             }
-                            if (!old.IsEmpty) {
-                                sortedHorses.Add(old);
-                                sortedHorses.Sort((a, b) => CalculateMountScore(b).CompareTo(CalculateMountScore(a)));
-                            }
-                            break;
                         }
-                    } else {
-                        break;
                     }
                 }
+            } catch (Exception e) {
+                InformationManager.DisplayMessage(new InformationMessage($"Exception caught in UpgradeHeroHorse! {e.Message}.", Color.FromUint(0xFFFFFF00)));
             }
         }
 
 
         /// <summary>
-        /// Swaps the specified equipment item into the given slot of the hero's battle equipment and updates the item
-        /// roster accordingly.
+        /// 
         /// </summary>
-        /// <remarks>If the slot previously contained an item, that item is returned to the item roster.
-        /// The item roster is decremented for the new equipment and incremented for the old equipment, if
-        /// applicable.</remarks>
-        /// <param name="hero">The hero whose equipment will be modified. Cannot be null.</param>
-        /// <param name="slot">The equipment slot to update with the new equipment item.</param>
-        /// <param name="newEquip">The new equipment element to place in the specified slot. Must reference a valid item present in the item
-        /// roster.</param>
-        /// <param name="itemRoster">The item roster to update when removing the new equipment and returning the old equipment, if any.</param>
-        /// <returns>The equipment element that was previously in the specified slot. Returns an empty element if the slot was
-        /// empty.</returns>
-        private EquipmentElement ApplySwap(Hero hero, EquipmentIndex slot, EquipmentElement newEquip, ItemRoster itemRoster, out int index) {
-            EquipmentElement oldEquip = hero.BattleEquipment[slot];
-            hero.BattleEquipment[slot] = newEquip;
-            index = itemRoster.AddToCounts(newEquip, -1);
-            if (!oldEquip.IsEmpty) {
-                itemRoster.AddToCounts(oldEquip, 1);
-                InformationManager.DisplayMessage(new InformationMessage($"{hero.Name} replaced {oldEquip.GetModifiedItemName()} with {newEquip.GetModifiedItemName()}.", Color.FromUint(0xFFFFFF00)));
-            } else {
-                InformationManager.DisplayMessage(new InformationMessage($"{hero.Name} equipped {newEquip.GetModifiedItemName()}.", Color.FromUint(0xFFFFFF00)));
+        /// <param name="hero"></param>
+        /// <param name="inventory"></param>
+        /// <param name="buckets"></param>
+        /// <param name="slot"></param>
+        private void UpgradeHeroWeaponSlot(Hero hero, ItemRoster inventory, Dictionary<ItemObject.ItemTypeEnum, List<EquipmentElement>> buckets, EquipmentIndex slot) {
+            try {
+                EquipmentElement existing = hero.BattleEquipment[slot];
+                if (existing.IsEmpty || existing.Item == null) {
+                    return;
+                }
+                if (buckets.TryGetValue(existing.Item.ItemType, out List<EquipmentElement> sorted)) {
+                    if (0 < sorted.Count) {
+                        if (existing.Item.ItemType == ItemObject.ItemTypeEnum.Bow) {
+                            UpgradeHeroBow(hero, inventory, sorted, existing, slot);
+                        } else {
+                            UpgradeHeroWeaponSlot(hero, inventory, sorted, existing, slot);
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                InformationManager.DisplayMessage(new InformationMessage($"Exception caught in UpgradeHeroWeaponSlot! {e.Message}.", Color.FromUint(0xFFFFFF00)));
             }
+        }
 
-            return oldEquip;
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="hero"></param>
+        /// <param name="inventory"></param>
+        /// <param name="sorted"></param>
+        /// <param name="existing"></param>
+        /// <param name="slot"></param>
+        private void UpgradeHeroWeaponSlot(Hero hero, ItemRoster inventory, List<EquipmentElement> sorted, EquipmentElement existing, EquipmentIndex slot) {
+            try {
+                if (EquipmentScores.GetScoreFunc(existing.Item.ItemType) is Func<EquipmentElement, float> getScore) {
+                    int heroSkill = hero.GetSkillValue(existing.Item.RelevantSkill);
+                    float eScore = getScore(existing);
+                    for (int i = 0; i < sorted.Count; ++i) {
+                        EquipmentElement top = sorted[i];
+                        if (eScore < getScore(top)) {
+                            if (top.Item.Difficulty <= heroSkill) {
+                                DoSwap(hero, top, inventory, sorted, slot);
+                                return;
+                            }
+                        } else {
+                            break;
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                InformationManager.DisplayMessage(new InformationMessage($"Exception caught in UpgradeHeroWeaponSlot! {e.Message}.", Color.FromUint(0xFFFFFF00)));
+            }
+        }
+
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="hero"></param>
+        /// <param name="inventory"></param>
+        /// <param name="sorted"></param>
+        /// <param name="existing"></param>
+        /// <param name="slot"></param>
+        private void UpgradeHeroBow(Hero hero, ItemRoster inventory, List<EquipmentElement> sorted, EquipmentElement existing, EquipmentIndex slot) {
+            try {
+                int heroSkill = hero.GetSkillValue(DefaultSkills.Bow);
+                bool isMounted = !hero.BattleEquipment[EquipmentIndex.Horse].IsEmpty;
+                bool horseMaster = hero.GetPerkValue(DefaultPerks.Bow.HorseMaster);
+                float eScore = EquipmentScores.CalcBowScore(existing);
+                for (int i = 0; i < sorted.Count; ++i) {
+                    EquipmentElement top = sorted[i];
+                    if (eScore < EquipmentScores.CalcBowScore(top)) {
+                        if (top.Item.Difficulty <= heroSkill) {
+                            bool isLongbow = top.Item.WeaponComponent.PrimaryWeapon.ItemUsage.Contains("long");
+                            if (!isMounted || (!isLongbow || horseMaster)) {
+                                DoSwap(hero, top, inventory, sorted, slot);
+                                return;
+                            }
+                        }
+                    } else {
+                        break;
+                    }
+                }
+            } catch (Exception e) {
+                InformationManager.DisplayMessage(new InformationMessage($"Exception caught in UpgradeHeroBow! {e.Message}.", Color.FromUint(0xFFFFFF00)));
+            }
+        }
+
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="hero"></param>
+        /// <param name="element"></param>
+        /// <param name="inventory"></param>
+        /// <param name="sorted"></param>
+        /// <param name="slot"></param>
+        private static void DoSwap(Hero hero, EquipmentElement element, ItemRoster inventory, List<EquipmentElement> sorted, EquipmentIndex slot) {
+            try {
+                EquipmentElement existing = hero.BattleEquipment[slot];
+                if (existing.IsEmpty) {
+                    string name = element.GetModifiedItemName()?.ToString();
+                    InformationManager.DisplayMessage(new InformationMessage($"{hero.Name} equipped {name}.", Color.FromUint(0xFFFFFF00)));
+                } else {
+                    string oldName = existing.GetModifiedItemName()?.ToString();
+                    string newName = element.GetModifiedItemName()?.ToString();
+                    InformationManager.DisplayMessage(new InformationMessage($"{hero.Name} replaced {oldName} with {newName}.", Color.FromUint(0xFFFFFF00)));
+                }
+                hero.BattleEquipment[slot] = element;
+                int index = inventory.AddToCounts(element, -1);
+                if (index < 0 || inventory.GetElementNumber(index) < 1 || !inventory.GetElementCopyAtIndex(index).EquipmentElement.IsEqualTo(element)) {
+                    int idx = sorted.IndexOf(element);
+                    if (-1 < idx) {
+                        sorted.RemoveAt(idx);
+                    }
+                }
+
+                if (!existing.IsEmpty && existing.Item != null) {
+                    inventory.AddToCounts(existing, 1);
+                    SortedInsert(sorted, existing, EquipmentScores.GetScoreFunc(existing.Item.ItemType));
+                }
+            } catch (Exception e) {
+                InformationManager.DisplayMessage(new InformationMessage($"Exception caught in DoSwap! {e.Message}.", Color.FromUint(0xFFFFFF00)));
+            }
         }
 
 
