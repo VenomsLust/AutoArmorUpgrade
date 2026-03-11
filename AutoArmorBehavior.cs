@@ -97,71 +97,72 @@ namespace AutoArmorUpgrade {
         /// armor score. If either the member roster or item roster is null, the method performs no action.</remarks>
         /// <param name="party">The party whose hero members will be upgraded. Must have a non-null member and item roster.</param>
         private void UpgradeAllHeroes(PartyBase party) {
-            if (party.MemberRoster == null || party.ItemRoster == null) {
-                return;
-            }
-
-            Dictionary<ItemObject.ItemTypeEnum, List<EquipmentElement>> buckets = new Dictionary<ItemObject.ItemTypeEnum, List<EquipmentElement>>();
-
-            // First, we loop through the loot and organize all armor pieces by their type (head, body, leg, gloves, cape)
-            foreach (ItemRosterElement element in party.ItemRoster) {
-                if (0 < element.Amount && element.EquipmentElement.Item is ItemObject item) {
-                    ItemObject.ItemTypeEnum type = item.ItemType;
-                    if (type == ItemObject.ItemTypeEnum.Invalid) {
-                        continue; // Skip items that don't have a valid type
-                    }
-
-                    if (!buckets.ContainsKey(type)) {
-                        buckets[type] = new List<EquipmentElement>();
-                    }
-                    buckets[type].Add(element.EquipmentElement);
+            try {
+                if (party.MemberRoster == null || party.ItemRoster == null) {
+                    return;
                 }
-            }
 
-            foreach (KeyValuePair<ItemObject.ItemTypeEnum, List<EquipmentElement>> kvp in buckets) {
-                if (1 < kvp.Value.Count) {
-                    if (EquipmentScores.GetScoreFunc(kvp.Key) is Func<EquipmentElement, float> score) {
-                        kvp.Value.Sort((a, b) => score(b).CompareTo(score(a)));
-                    }
-                }
-            }
+                Dictionary<ItemObject.ItemTypeEnum, List<EquipmentElement>> buckets = new Dictionary<ItemObject.ItemTypeEnum, List<EquipmentElement>>();
 
-            for (int i = 0; i < party.MemberRoster.Count; i++) {
-                TroopRosterElement member = party.MemberRoster.GetElementCopyAtIndex(i);
-                if (member.Character?.HeroObject is Hero hero && hero.IsAlive) {
-                    if (buckets.ContainsKey(ItemObject.ItemTypeEnum.HeadArmor)) {
-                        UpgradeHeroArmor(hero, party.ItemRoster, buckets[ItemObject.ItemTypeEnum.HeadArmor], EquipmentIndex.Head);
-                    }
-                    if (buckets.ContainsKey(ItemObject.ItemTypeEnum.BodyArmor)) {
-                        UpgradeHeroArmor(hero, party.ItemRoster, buckets[ItemObject.ItemTypeEnum.BodyArmor], EquipmentIndex.Body);
-                    }
-                    if (buckets.ContainsKey(ItemObject.ItemTypeEnum.LegArmor)) {
-                        UpgradeHeroArmor(hero, party.ItemRoster, buckets[ItemObject.ItemTypeEnum.LegArmor], EquipmentIndex.Leg);
-                    }
-
-                    if (buckets.ContainsKey(ItemObject.ItemTypeEnum.HandArmor)) {
-                        UpgradeHeroArmor(hero, party.ItemRoster, buckets[ItemObject.ItemTypeEnum.HandArmor], EquipmentIndex.Gloves);
-                    }
-
-                    if (buckets.ContainsKey(ItemObject.ItemTypeEnum.Cape)) {
-                        UpgradeHeroArmor(hero, party.ItemRoster, buckets[ItemObject.ItemTypeEnum.Cape], EquipmentIndex.Cape);
-                    }
-
-                    if (!hero.BattleEquipment[EquipmentIndex.Horse].IsEmpty) {
-                        if (buckets.ContainsKey(ItemObject.ItemTypeEnum.HorseHarness)) {
-                            UpgradeHeroArmor(hero, party.ItemRoster, buckets[ItemObject.ItemTypeEnum.HorseHarness], EquipmentIndex.HorseHarness);
+                // First, we loop through the loot and organize all armor pieces by their type (head, body, leg, gloves, cape)
+                foreach (ItemRosterElement element in party.ItemRoster) {
+                    if (0 < element.Amount && element.EquipmentElement.Item is ItemObject item) {
+                        ItemObject.ItemTypeEnum type = item.ItemType;
+                        if (type == ItemObject.ItemTypeEnum.Invalid) {
+                            continue; // Skip items that don't have a valid type
                         }
 
-                        if (buckets.ContainsKey(ItemObject.ItemTypeEnum.Horse)) {
-                            UpgradeHeroHorse(hero, party.ItemRoster, buckets[ItemObject.ItemTypeEnum.Horse]);
+                        if (!buckets.ContainsKey(type)) {
+                            buckets[type] = new List<EquipmentElement>();
+                        }
+                        buckets[type].Add(element.EquipmentElement);
+                    }
+                }
+
+                foreach (KeyValuePair<ItemObject.ItemTypeEnum, List<EquipmentElement>> kvp in buckets) {
+                    if (1 < kvp.Value.Count) {
+                        if (EquipmentScores.GetScoreFunc(kvp.Key) is Func<EquipmentElement, float> score) {
+                            kvp.Value.Sort((a, b) => score(b).CompareTo(score(a)));
                         }
                     }
-
-                    UpgradeHeroWeaponSlot(hero, party.ItemRoster, buckets, EquipmentIndex.Weapon0);
-                    UpgradeHeroWeaponSlot(hero, party.ItemRoster, buckets, EquipmentIndex.Weapon1);
-                    UpgradeHeroWeaponSlot(hero, party.ItemRoster, buckets, EquipmentIndex.Weapon2);
-                    UpgradeHeroWeaponSlot(hero, party.ItemRoster, buckets, EquipmentIndex.Weapon3);
                 }
+
+                for (int i = 0; i < party.MemberRoster.Count; i++) {
+                    TroopRosterElement member = party.MemberRoster.GetElementCopyAtIndex(i);
+                    if (member.Character?.HeroObject is Hero hero && hero.IsAlive) {
+                        if (buckets.TryGetValue(ItemObject.ItemTypeEnum.HeadArmor, out var headBucket)) {
+                            UpgradeHeroArmor(hero, party.ItemRoster, headBucket, EquipmentIndex.Head);
+                        }
+                        if (buckets.TryGetValue(ItemObject.ItemTypeEnum.BodyArmor, out var bodyBucket)) {
+                            UpgradeHeroArmor(hero, party.ItemRoster, bodyBucket, EquipmentIndex.Body);
+                        }
+                        if (buckets.TryGetValue(ItemObject.ItemTypeEnum.LegArmor, out var legBucket)) {
+                            UpgradeHeroArmor(hero, party.ItemRoster, legBucket, EquipmentIndex.Leg);
+                        }
+                        if (buckets.TryGetValue(ItemObject.ItemTypeEnum.HandArmor, out var handBucket)) {
+                            UpgradeHeroArmor(hero, party.ItemRoster, handBucket, EquipmentIndex.Gloves);
+                        }
+                        if (buckets.TryGetValue(ItemObject.ItemTypeEnum.Cape, out var capeBucket)) {
+                            UpgradeHeroArmor(hero, party.ItemRoster, capeBucket, EquipmentIndex.Cape);
+                        }
+
+                        if (!hero.BattleEquipment[EquipmentIndex.Horse].IsEmpty) {
+                            if (buckets.TryGetValue(ItemObject.ItemTypeEnum.HorseHarness, out var horseArmorBucket)) {
+                                UpgradeHeroArmor(hero, party.ItemRoster, horseArmorBucket, EquipmentIndex.HorseHarness);
+                            }
+                            if (buckets.TryGetValue(ItemObject.ItemTypeEnum.Horse, out var horseBucket)) {
+                                UpgradeHeroHorse(hero, party.ItemRoster, horseBucket);
+                            }
+                        }
+
+                        UpgradeHeroWeaponSlot(hero, party.ItemRoster, buckets, EquipmentIndex.Weapon0);
+                        UpgradeHeroWeaponSlot(hero, party.ItemRoster, buckets, EquipmentIndex.Weapon1);
+                        UpgradeHeroWeaponSlot(hero, party.ItemRoster, buckets, EquipmentIndex.Weapon2);
+                        UpgradeHeroWeaponSlot(hero, party.ItemRoster, buckets, EquipmentIndex.Weapon3);
+                    }
+                }
+            } catch (Exception e) {
+                InformationManager.DisplayMessage(new InformationMessage($"Exception caught in UpgradeAllHeroes! {e.Message}.", Color.FromUint(0xFFFFFF00)));
             }
         }
 
@@ -172,35 +173,39 @@ namespace AutoArmorUpgrade {
         /// <param name="list"></param>
         /// <param name="element"></param>
         private static void SortedInsert(List<EquipmentElement> list, EquipmentElement element, Func<EquipmentElement, float> getScore) {
-            if (list.Count == 0) {
-                list.Add(element);
-                return;
-            }
-            int low = 0;
-            int high = list.Count - 1;
-            float score = getScore(element);
-            if (score < getScore(list[low])) {
-                low++;
-                if (0 < high && getScore(list[high]) < score) {
-                    high--;
-                    while (low < high) {
-                        int mid = (low + high) >> 1;
-                        float iScore = getScore(list[mid]);
-                        if (iScore < score) {
-                            high = mid - 1;
-                        } else if (score < iScore) {
-                            low = mid + 1;
-                        } else {
-                            list.Insert(mid, element);
-                            return;
-                        }
-                    }
-                    list.Insert(low, element);
-                } else {
+            try {
+                if (list.Count == 0) {
                     list.Add(element);
+                    return;
                 }
-            } else {
-                list.Insert(0, element);
+                int low = 0;
+                int high = list.Count - 1;
+                float score = getScore(element);
+                if (score < getScore(list[low])) {
+                    low++;
+                    if (0 < high && getScore(list[high]) < score) {
+                        high--;
+                        while (low < high) {
+                            int mid = (low + high) >> 1;
+                            float iScore = getScore(list[mid]);
+                            if (iScore < score) {
+                                high = mid - 1;
+                            } else if (score < iScore) {
+                                low = mid + 1;
+                            } else {
+                                list.Insert(mid, element);
+                                return;
+                            }
+                        }
+                        list.Insert(low, element);
+                    } else {
+                        list.Add(element);
+                    }
+                } else {
+                    list.Insert(0, element);
+                }
+            } catch (Exception e) {
+                InformationManager.DisplayMessage(new InformationMessage($"Exception caught in SortedInsert! {e.Message}.", Color.FromUint(0xFFFFFF00)));
             }
         }
 
@@ -213,13 +218,17 @@ namespace AutoArmorUpgrade {
         /// <param name="sorted"></param>
         /// <param name="slot"></param>
         private static void UpgradeHeroArmor(Hero hero, ItemRoster inventory, List<EquipmentElement> sorted, EquipmentIndex slot) {
-            if (0 < sorted.Count && sorted[0] is EquipmentElement top) {
-                EquipmentElement existing = hero.BattleEquipment[slot];
-                if (EquipmentScores.GetScoreFunc(existing.Item.ItemType) is Func<EquipmentElement, float> score) {
-                    if (score(existing) < score(top)) {
-                        DoSwap(hero, top, inventory, sorted, slot);
+            try {
+                if (0 < sorted.Count && sorted[0] is EquipmentElement top) {
+                    EquipmentElement existing = hero.BattleEquipment[slot];
+                    if (EquipmentScores.GetScoreFunc(top.Item.ItemType) is Func<EquipmentElement, float> score) {
+                        if (score(existing) < score(top)) {
+                            DoSwap(hero, top, inventory, sorted, slot);
+                        }
                     }
                 }
+            } catch (Exception e) {
+                InformationManager.DisplayMessage(new InformationMessage($"Exception caught in UpgradeHeroArmor! {e.Message}.", Color.FromUint(0xFFFFFF00)));
             }
         }
 
@@ -234,21 +243,27 @@ namespace AutoArmorUpgrade {
         /// <param name="hero">The hero whose horse equipment will be upgraded. Cannot be null.</param>
         /// <param name="inventory">The item roster used to manage equipment changes during the upgrade process. Cannot be null.</param>
         private void UpgradeHeroHorse(Hero hero, ItemRoster inventory, List<EquipmentElement> sorted) {
-            EquipmentElement existing = hero.BattleEquipment[EquipmentIndex.Horse];
-            if (EquipmentScores.GetScoreFunc(ItemObject.ItemTypeEnum.Horse) is Func<EquipmentElement, float> getScore) {
-                float currentScore = getScore(existing);
-                for (int i = 0; i < sorted.Count; i++) {
-                    if (sorted[i] is EquipmentElement element) {
-                        if (currentScore < getScore(element)) {
-                            if (element.Item.Difficulty <= hero.GetSkillValue(DefaultSkills.Riding)) {
-                                DoSwap(hero, element, inventory, sorted, EquipmentIndex.Horse);
-                                break;
+            try {
+                if (0 < sorted.Count) {
+                    EquipmentElement existing = hero.BattleEquipment[EquipmentIndex.Horse];
+                    if (EquipmentScores.GetScoreFunc(ItemObject.ItemTypeEnum.Horse) is Func<EquipmentElement, float> getScore) {
+                        float currentScore = getScore(existing);
+                        for (int i = 0; i < sorted.Count; i++) {
+                            if (sorted[i] is EquipmentElement element) {
+                                if (currentScore < getScore(element)) {
+                                    if (element.Item.Difficulty <= hero.GetSkillValue(DefaultSkills.Riding)) {
+                                        DoSwap(hero, element, inventory, sorted, EquipmentIndex.Horse);
+                                        break;
+                                    }
+                                } else {
+                                    break;
+                                }
                             }
-                        } else {
-                            break;
                         }
                     }
                 }
+            } catch (Exception e) {
+                InformationManager.DisplayMessage(new InformationMessage($"Exception caught in UpgradeHeroHorse! {e.Message}.", Color.FromUint(0xFFFFFF00)));
             }
         }
 
@@ -261,18 +276,22 @@ namespace AutoArmorUpgrade {
         /// <param name="buckets"></param>
         /// <param name="slot"></param>
         private void UpgradeHeroWeaponSlot(Hero hero, ItemRoster inventory, Dictionary<ItemObject.ItemTypeEnum, List<EquipmentElement>> buckets, EquipmentIndex slot) {
-            EquipmentElement existing = hero.BattleEquipment[slot];
-            if (existing.IsEmpty || existing.Item == null) {
-                return;
-            }
-            if (buckets.TryGetValue(existing.Item.ItemType, out List<EquipmentElement> sorted)) {
-                if (0 < sorted.Count) {
-                    if (existing.Item.ItemType == ItemObject.ItemTypeEnum.Bow) {
-                        UpgradeHeroBow(hero, inventory, sorted, existing, slot);
-                    } else {
-                        UpgradeHeroWeaponSlot(hero, inventory, sorted, existing, slot);
+            try {
+                EquipmentElement existing = hero.BattleEquipment[slot];
+                if (existing.IsEmpty || existing.Item == null) {
+                    return;
+                }
+                if (buckets.TryGetValue(existing.Item.ItemType, out List<EquipmentElement> sorted)) {
+                    if (0 < sorted.Count) {
+                        if (existing.Item.ItemType == ItemObject.ItemTypeEnum.Bow) {
+                            UpgradeHeroBow(hero, inventory, sorted, existing, slot);
+                        } else {
+                            UpgradeHeroWeaponSlot(hero, inventory, sorted, existing, slot);
+                        }
                     }
                 }
+            } catch (Exception e) {
+                InformationManager.DisplayMessage(new InformationMessage($"Exception caught in UpgradeHeroWeaponSlot! {e.Message}.", Color.FromUint(0xFFFFFF00)));
             }
         }
 
@@ -286,24 +305,24 @@ namespace AutoArmorUpgrade {
         /// <param name="existing"></param>
         /// <param name="slot"></param>
         private void UpgradeHeroWeaponSlot(Hero hero, ItemRoster inventory, List<EquipmentElement> sorted, EquipmentElement existing, EquipmentIndex slot) {
-            if (EquipmentScores.GetScoreFunc(existing.Item.ItemType) is Func<EquipmentElement, float> getScore) {
-                int heroSkill = hero.GetSkillValue(existing.Item.RelevantSkill);
-                float eScore = getScore(existing);
-                int index = 0;
-                EquipmentElement top = sorted[index];
-                while (eScore < getScore(top)) {
-                    if (top.Item.Difficulty <= heroSkill) {
-                        DoSwap(hero, top, inventory, sorted, slot);
-                        return;
-                    }
-
-                    index++;
-                    if (index < sorted.Count) {
-                        top = sorted[index];
-                    } else {
-                        break;
+            try {
+                if (EquipmentScores.GetScoreFunc(existing.Item.ItemType) is Func<EquipmentElement, float> getScore) {
+                    int heroSkill = hero.GetSkillValue(existing.Item.RelevantSkill);
+                    float eScore = getScore(existing);
+                    for (int i = 0; i < sorted.Count; ++i) {
+                        EquipmentElement top = sorted[i];
+                        if (eScore < getScore(top)) {
+                            if (top.Item.Difficulty <= heroSkill) {
+                                DoSwap(hero, top, inventory, sorted, slot);
+                                return;
+                            }
+                        } else {
+                            break;
+                        }
                     }
                 }
+            } catch (Exception e) {
+                InformationManager.DisplayMessage(new InformationMessage($"Exception caught in UpgradeHeroWeaponSlot! {e.Message}.", Color.FromUint(0xFFFFFF00)));
             }
         }
 
@@ -317,27 +336,27 @@ namespace AutoArmorUpgrade {
         /// <param name="existing"></param>
         /// <param name="slot"></param>
         private void UpgradeHeroBow(Hero hero, ItemRoster inventory, List<EquipmentElement> sorted, EquipmentElement existing, EquipmentIndex slot) {
-            int heroSkill = hero.GetSkillValue(DefaultSkills.Bow);
-            bool isMounted = !hero.BattleEquipment[EquipmentIndex.Horse].IsEmpty;
-            bool horseMaster = hero.GetPerkValue(DefaultPerks.Bow.HorseMaster);
-            float eScore = EquipmentScores.CalcBowScore(existing);
-            int index = 0;
-            EquipmentElement top = sorted[index];
-            while (eScore < EquipmentScores.CalcBowScore(top)) {
-                if (top.Item.Difficulty <= heroSkill) {
-                    bool isLongbow = top.Item.WeaponComponent.PrimaryWeapon.ItemUsage.Contains("long");
-                    if (!isMounted || (!isLongbow || horseMaster)) {
-                        DoSwap(hero, top, inventory, sorted, slot);
-                        return;
+            try {
+                int heroSkill = hero.GetSkillValue(DefaultSkills.Bow);
+                bool isMounted = !hero.BattleEquipment[EquipmentIndex.Horse].IsEmpty;
+                bool horseMaster = hero.GetPerkValue(DefaultPerks.Bow.HorseMaster);
+                float eScore = EquipmentScores.CalcBowScore(existing);
+                for (int i = 0; i < sorted.Count; ++i) {
+                    EquipmentElement top = sorted[i];
+                    if (eScore < EquipmentScores.CalcBowScore(top)) {
+                        if (top.Item.Difficulty <= heroSkill) {
+                            bool isLongbow = top.Item.WeaponComponent.PrimaryWeapon.ItemUsage.Contains("long");
+                            if (!isMounted || (!isLongbow || horseMaster)) {
+                                DoSwap(hero, top, inventory, sorted, slot);
+                                return;
+                            }
+                        }
+                    } else {
+                        break;
                     }
                 }
-
-                index++;
-                if (index < sorted.Count) {
-                    top = sorted[index];
-                } else {
-                    break;
-                }
+            } catch (Exception e) {
+                InformationManager.DisplayMessage(new InformationMessage($"Exception caught in UpgradeHeroBow! {e.Message}.", Color.FromUint(0xFFFFFF00)));
             }
         }
 
@@ -351,24 +370,31 @@ namespace AutoArmorUpgrade {
         /// <param name="sorted"></param>
         /// <param name="slot"></param>
         private static void DoSwap(Hero hero, EquipmentElement element, ItemRoster inventory, List<EquipmentElement> sorted, EquipmentIndex slot) {
-            EquipmentElement existing = hero.BattleEquipment[slot];
-            if (existing.IsEmpty) {
-                string name = element.GetModifiedItemName().ToString();
-                InformationManager.DisplayMessage(new InformationMessage($"{hero.Name} equipped {name}.", Color.FromUint(0xFFFFFF00)));
-            } else {
-                string oldName = existing.GetModifiedItemName().ToString();
-                string newName = element.GetModifiedItemName().ToString();
-                InformationManager.DisplayMessage(new InformationMessage($"{hero.Name} replaced {oldName} with {newName}.", Color.FromUint(0xFFFFFF00)));
-            }
-            hero.BattleEquipment[slot] = element;
-            int index = inventory.AddToCounts(element, -1);
-            if (index < 0 || inventory.GetElementNumber(index) < 1 || !inventory.GetElementCopyAtIndex(index).EquipmentElement.IsEqualTo(element)) {
-                sorted.Remove(element);
-            }
+            try {
+                EquipmentElement existing = hero.BattleEquipment[slot];
+                if (existing.IsEmpty) {
+                    string name = element.GetModifiedItemName()?.ToString();
+                    InformationManager.DisplayMessage(new InformationMessage($"{hero.Name} equipped {name}.", Color.FromUint(0xFFFFFF00)));
+                } else {
+                    string oldName = existing.GetModifiedItemName()?.ToString();
+                    string newName = element.GetModifiedItemName()?.ToString();
+                    InformationManager.DisplayMessage(new InformationMessage($"{hero.Name} replaced {oldName} with {newName}.", Color.FromUint(0xFFFFFF00)));
+                }
+                hero.BattleEquipment[slot] = element;
+                int index = inventory.AddToCounts(element, -1);
+                if (index < 0 || inventory.GetElementNumber(index) < 1 || !inventory.GetElementCopyAtIndex(index).EquipmentElement.IsEqualTo(element)) {
+                    int idx = sorted.IndexOf(element);
+                    if (-1 < idx) {
+                        sorted.RemoveAt(idx);
+                    }
+                }
 
-            if (!existing.IsEmpty) {
-                inventory.AddToCounts(existing, 1);
-                SortedInsert(sorted, existing, EquipmentScores.GetScoreFunc(existing.Item.ItemType));
+                if (!existing.IsEmpty && existing.Item != null) {
+                    inventory.AddToCounts(existing, 1);
+                    SortedInsert(sorted, existing, EquipmentScores.GetScoreFunc(existing.Item.ItemType));
+                }
+            } catch (Exception e) {
+                InformationManager.DisplayMessage(new InformationMessage($"Exception caught in DoSwap! {e.Message}.", Color.FromUint(0xFFFFFF00)));
             }
         }
 

@@ -5,6 +5,38 @@ using TaleWorlds.Core;
 namespace AutoArmorUpgrade {
     internal static class EquipmentScores {
 
+        public static float WGT_HEAD_ARMOR = 1.0f;
+        public static float WGT_CAPE_ARMOR = 1.0f;
+        public static float WGT_BODY_ARMOR = 1.0f;
+        public static float WGT_HAND_ARMOR = 1.0f;
+        public static float WGT_ARM_ARMOR = 1.0f;
+        public static float WGT_LEG_ARMOR = 1.0f;
+        public static float WGT_ARMOR_WGT = 0.5f;
+        public static float WGT_MOUNT_ARMOR_WGT = 0.01f;
+        public static float WGT_MOUNT_SPD = 10.0f;
+        public static float WGT_MOUNT_MNV = 0.5f;
+        public static float WGT_MOUNT_CHG = 0.05f;
+        public static float WGT_MOUNT_HP = 0.1f;
+        public static float WGT_MOUNT_ARM = 1.0f;
+        public static float WGT_SHIELD_HP = 2.0f;
+        public static float WGT_SHIELD_SZ = 1.0f;
+        public static float WGT_SHIELD_SPD = 0.75f;
+        public static float WGT_1H_SLASH_DMG = 1.75f;
+        public static float WGT_1H_THRUST_DMG = 0.25f;
+        public static float WGT_1H_LENGTH = 1.75f;
+        public static float WGT_1H_HANDLE = 1.25f;
+        public static float WGT_1H_WGT = 2.00f;
+        public static float WGT_2H_SLASH_DMG = 1.75f;
+        public static float WGT_2H_THRUST_DMG = 0.25f;
+        public static float WGT_2H_LENGTH = 1.75f;
+        public static float WGT_2H_HANDLE = 1.25f;
+        public static float WGT_2H_WGT = 2.00f;
+        public static float WGT_BOW_DMG = 1.0f;
+        public static float WGT_XBOW_DMG = 1.0f;
+        public static float WGT_ARROW_DMG = 1.0f;
+        public static float WGT_BOLT_DMG = 1.0f;
+
+
         /// <summary>
         /// 
         /// </summary>
@@ -13,7 +45,9 @@ namespace AutoArmorUpgrade {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static float CalcHeadArmorScore(EquipmentElement element) {
             if (element.Item?.ItemType == ItemObject.ItemTypeEnum.HeadArmor) {
-                return element.GetModifiedHeadArmor() - element.Weight * 0.5f;
+                float head = element.GetModifiedHeadArmor() * WGT_HEAD_ARMOR;
+                float wgt = element.Weight * WGT_ARMOR_WGT;
+                return head - wgt;
             }
             return -1f;
         }
@@ -27,7 +61,10 @@ namespace AutoArmorUpgrade {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static float CalcCapeArmorScore(EquipmentElement element) {
             if (element.Item?.ItemType == ItemObject.ItemTypeEnum.Cape) {
-                return element.GetModifiedBodyArmor() + element.GetModifiedArmArmor() - (element.Weight * 0.5f);
+                float body = element.GetModifiedBodyArmor() * WGT_BODY_ARMOR;
+                float arm = element.GetModifiedArmArmor() * WGT_ARM_ARMOR;
+                float wgt = element.Weight * WGT_ARMOR_WGT;
+                return body + arm - wgt;
             }
             return -1f;
         }
@@ -41,7 +78,11 @@ namespace AutoArmorUpgrade {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static float CalcBodyArmorScore(EquipmentElement element) {
             if (element.Item?.ItemType == ItemObject.ItemTypeEnum.BodyArmor) {
-                return element.GetModifiedBodyArmor() + element.GetModifiedArmArmor() + element.GetModifiedLegArmor() - (element.Weight * 0.5f);
+                float body = element.GetModifiedBodyArmor() * WGT_BODY_ARMOR;
+                float arm = element.GetModifiedArmArmor() * WGT_ARM_ARMOR;
+                float leg = element.GetModifiedLegArmor() * WGT_LEG_ARMOR;
+                float wgt = element.Weight * WGT_ARMOR_WGT;
+                return body + arm + leg - wgt;
             }
             return -1f;
         }
@@ -55,7 +96,9 @@ namespace AutoArmorUpgrade {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static float CalcHandArmorScore(EquipmentElement element) {
             if (element.Item?.ItemType == ItemObject.ItemTypeEnum.HandArmor) {
-                return element.GetModifiedArmArmor() - (element.Weight * 0.5f);
+                float arm = element.GetModifiedArmArmor() * WGT_ARM_ARMOR;
+                float wgt = element.Weight * WGT_ARMOR_WGT;
+                return arm - wgt;
             }
             return -1f;
         }
@@ -69,7 +112,9 @@ namespace AutoArmorUpgrade {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static float CalcLegArmorScore(EquipmentElement element) {
             if (element.Item?.ItemType == ItemObject.ItemTypeEnum.LegArmor) {
-                return element.GetModifiedLegArmor() - (element.Weight * 0.5f);
+                float leg = element.GetModifiedLegArmor() * WGT_LEG_ARMOR;
+                float wgt = element.Weight * WGT_ARMOR_WGT;
+                return leg - wgt;
             }
             return -1f;
         }
@@ -83,7 +128,11 @@ namespace AutoArmorUpgrade {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static float CalcMountScore(EquipmentElement element) {
             if (element.Item?.HorseComponent is HorseComponent horse) {
-                return (horse.Speed * 10.0f) + horse.Maneuver + (horse.ChargeDamage * 0.05f);
+                float spd = horse.Speed * WGT_MOUNT_SPD;
+                float mnv = horse.Maneuver * WGT_MOUNT_MNV;
+                float chg = horse.ChargeDamage * WGT_MOUNT_CHG;
+                float hp = horse.HitPoints * WGT_MOUNT_HP;
+                return spd + mnv + chg + hp;
             }
             return -1f;
         }
@@ -97,7 +146,9 @@ namespace AutoArmorUpgrade {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static float CalcMountArmorScore(EquipmentElement element) {
             if (element.Item?.ItemType == ItemObject.ItemTypeEnum.HorseHarness) {
-                return element.GetModifiedBodyArmor() - (element.Weight * 0.01f);
+                float body = element.GetModifiedMountBodyArmor() * WGT_MOUNT_ARM;
+                float wgt = element.Weight * WGT_MOUNT_ARMOR_WGT;
+                return body - wgt;
             }
             return -1f;
         }
@@ -112,10 +163,11 @@ namespace AutoArmorUpgrade {
         public static float CalcShieldScore(EquipmentElement element) {
             if (element.Item?.WeaponComponent is WeaponComponent shield) {
                 if (shield.PrimaryWeapon is WeaponComponentData shieldData && shieldData.IsShield) {
-                    float hp = shieldData.MaxDataValue;
-                    float speed = shieldData.Handling;
-                    float size = shieldData.BodyArmor;
-                    return (hp * 0.1f) + speed + (size * 2.0f) - element.Weight;
+                    float hp = shieldData.MaxDataValue * WGT_SHIELD_HP;
+                    float speed = shieldData.Handling * WGT_SHIELD_SPD;
+                    float size = shieldData.BodyArmor * WGT_SHIELD_SZ;
+                    float wgt = element.Weight * WGT_ARMOR_WGT;
+                    return hp + speed + size - wgt;
                 }
             }
             return -1f;
@@ -131,11 +183,11 @@ namespace AutoArmorUpgrade {
         public static float CalcBowScore(EquipmentElement element) {
             if (element.Item?.WeaponComponent is WeaponComponent bow) {
                 if (bow.PrimaryWeapon is WeaponComponentData bowData) {
-                    float dmg = element.GetModifiedMissileDamageForUsage(0);
-                    float spd = element.GetModifiedMissileSpeedForUsage(0);
-                    float acc = bowData.Accuracy;
-                    float rof = bowData.Handling;
-                    return (dmg * 2) * (spd * 0.01f) * (acc * 0.01f) * (rof * 0.01f);
+                    float dmg = element.GetModifiedMissileDamageForUsage(0) * WGT_BOW_DMG;
+                    float spd = element.GetModifiedMissileSpeedForUsage(0) * 0.01f;
+                    float acc = bowData.Accuracy * 0.02f;
+                    float rof = bowData.Handling * 0.01f;
+                    return dmg * (spd + acc + rof);
                 }
             }
             return -1f;
@@ -151,11 +203,11 @@ namespace AutoArmorUpgrade {
         public static float CalcCrossbowScore(EquipmentElement element) {
             if (element.Item?.WeaponComponent is WeaponComponent bow) {
                 if (bow.PrimaryWeapon is WeaponComponentData bowData) {
-                    float dmg = element.GetModifiedMissileDamageForUsage(0);
-                    float spd = element.GetModifiedMissileSpeedForUsage(0);
-                    float acc = bowData.Accuracy;
-                    float rof = bowData.Handling;
-                    return (dmg * 2) * (spd * 0.01f) * (acc * 0.01f) * (rof * 0.01f);
+                    float dmg = element.GetModifiedMissileDamageForUsage(0) * WGT_XBOW_DMG;
+                    float spd = element.GetModifiedMissileSpeedForUsage(0) * 0.01f;
+                    float acc = bowData.Accuracy * 0.02f;
+                    float rof = bowData.Handling * 0.01f;
+                    return dmg * (spd + acc + rof);
                 }
             }
             return -1f;
@@ -171,7 +223,8 @@ namespace AutoArmorUpgrade {
         public static float CalcArrowScore(EquipmentElement element) {
             if (element.Item?.ItemType == ItemObject.ItemTypeEnum.Arrows && element.Item.WeaponComponent is WeaponComponent arrow) {
                 if (arrow.PrimaryWeapon is WeaponComponentData arrowData) {
-                    return ((element.GetModifiedMissileDamageForUsage(0) + 1.0f) * 2.0f) * arrowData.MaxDataValue;
+                    float dmg = Math.Max(0.1f, element.GetModifiedMissileDamageForUsage(0)) * WGT_ARROW_DMG;
+                    return dmg * arrowData.MaxDataValue;
                 }
             }
             return -1f;
@@ -187,7 +240,8 @@ namespace AutoArmorUpgrade {
         public static float CalcBoltScore(EquipmentElement element) {
             if (element.Item?.ItemType == ItemObject.ItemTypeEnum.Bolts && element.Item.WeaponComponent is WeaponComponent bolts) {
                 if (bolts.PrimaryWeapon is WeaponComponentData arrowData) {
-                    return ((element.GetModifiedMissileDamageForUsage(0) + 1.0f) * 2.0f) * arrowData.MaxDataValue;
+                    float dmg = Math.Max(0.1f, element.GetModifiedMissileDamageForUsage(0)) * WGT_BOLT_DMG;
+                    return dmg * arrowData.MaxDataValue;
                 }
             }
             return -1f;
@@ -203,20 +257,19 @@ namespace AutoArmorUpgrade {
         public static float CalcOneHandedScore(EquipmentElement element) {
             if (element.Item?.ItemType == ItemObject.ItemTypeEnum.OneHandedWeapon) {
                 if (element.Item.WeaponComponent is WeaponComponent weapon) {
-                    float thrustDmg = element.GetModifiedThrustDamageForUsage(0);
+                    float thrustDmg = element.GetModifiedThrustDamageForUsage(0) * WGT_1H_THRUST_DMG;
                     float thrustSpd = element.GetModifiedThrustSpeedForUsage(0) * 0.01f;
 
-                    float mult = thrustDmg == 0f ? 3f : 2f;
-                    float swingDmg = element.GetModifiedSwingDamageForUsage(0) * mult;
+                    float swingDmg = element.GetModifiedSwingDamageForUsage(0) * WGT_1H_SLASH_DMG;
                     float swingSpd = element.GetModifiedSwingSpeedForUsage(0) * 0.01f;
 
-                    float reach = weapon.PrimaryWeapon.WeaponLength;
+                    float reach = weapon.PrimaryWeapon.WeaponLength * WGT_1H_LENGTH;
 
-                    float handling = element.GetModifiedHandlingForUsage(0);
+                    float handling = element.GetModifiedHandlingForUsage(0) * WGT_1H_HANDLE;
 
-                    float weight = element.Weight;
+                    float weight = element.Weight * WGT_1H_WGT;
 
-                    return (swingDmg * swingSpd) + (thrustDmg * thrustSpd) + (reach * 0.5f) + (handling * 0.75f) - (weight * 0.5f);
+                    return (swingDmg * swingSpd) + (thrustDmg * thrustSpd) + reach + handling - weight;
                 }
             }
             return -1f;
@@ -232,20 +285,19 @@ namespace AutoArmorUpgrade {
         public static float CalcTwoHandedScore(EquipmentElement element) {
             if (element.Item?.ItemType == ItemObject.ItemTypeEnum.TwoHandedWeapon) {
                 if (element.Item.WeaponComponent is WeaponComponent weapon) {
-                    float thrustDmg = element.GetModifiedThrustDamageForUsage(0);
+                    float thrustDmg = element.GetModifiedThrustDamageForUsage(0) * WGT_2H_THRUST_DMG;
                     float thrustSpd = element.GetModifiedThrustSpeedForUsage(0) * 0.01f;
 
-                    float mult = thrustDmg == 0f ? 3f : 2f;
-                    float swingDmg = element.GetModifiedSwingDamageForUsage(0) * mult;
+                    float swingDmg = element.GetModifiedSwingDamageForUsage(0) * WGT_2H_SLASH_DMG;
                     float swingSpd = element.GetModifiedSwingSpeedForUsage(0) * 0.01f;
 
-                    float reach = weapon.PrimaryWeapon.WeaponLength;
+                    float reach = weapon.PrimaryWeapon.WeaponLength * WGT_2H_LENGTH;
 
-                    float handling = element.GetModifiedHandlingForUsage(0);
+                    float handling = element.GetModifiedHandlingForUsage(0) * WGT_2H_HANDLE;
 
-                    float weight = element.Weight;
+                    float weight = element.Weight * WGT_2H_WGT;
 
-                    return (swingDmg * swingSpd) + (thrustDmg * thrustSpd) + (reach * 0.75f) + (handling * 0.75f) - (weight * 0.5f);
+                    return (swingDmg * swingSpd) + (thrustDmg * thrustSpd) + reach + handling - weight;
                 }
             }
             return -1f;
@@ -267,15 +319,15 @@ namespace AutoArmorUpgrade {
                     float swingDmg = element.GetModifiedSwingDamageForUsage(0);
                     float swingSpd = element.GetModifiedSwingSpeedForUsage(0) * 0.01f;
 
-                    float swingMult = thrustDmg == 0f ? 3f : 2.0f;
-                    float thrustMult = swingDmg == 0f ? 3f : 1.0f;
+                    float swingMult = 1.75f;
+                    float thrustMult = swingDmg == 0f ? 1.75f : 0.25f;
 
                     thrustDmg *= thrustMult;
                     swingDmg *= swingMult;
 
-                    float reach = weapon.PrimaryWeapon.WeaponLength;
+                    float reach = weapon.PrimaryWeapon.WeaponLength * 1.75f;
 
-                    float handling = element.GetModifiedHandlingForUsage(0);
+                    float handling = element.GetModifiedHandlingForUsage(0) * 1.5f;
 
                     float weight = element.Weight;
 

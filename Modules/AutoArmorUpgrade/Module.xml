@@ -2,6 +2,6 @@
 <Module>
 	<Name value="Auto-Armor Upgrade"/>
 	<Id value="AutoArmorUpgrade"/>
-	<Version value="1.1.0"/>
+	<Version value="1.1.2.0"/>
 	<SingleplayerModule value="true"/>
 </Module>
