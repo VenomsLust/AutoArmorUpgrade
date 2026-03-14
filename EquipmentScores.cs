@@ -21,15 +21,15 @@ namespace AutoArmorUpgrade {
         public static float WGT_SHIELD_HP = 2.0f;
         public static float WGT_SHIELD_SZ = 1.0f;
         public static float WGT_SHIELD_SPD = 0.75f;
-        public static float WGT_1H_SLASH_DMG = 1.75f;
-        public static float WGT_1H_THRUST_DMG = 0.25f;
-        public static float WGT_1H_LENGTH = 1.75f;
-        public static float WGT_1H_HANDLE = 1.25f;
+        public static float WGT_1H_SLASH_DMG = 2.25f;
+        public static float WGT_1H_THRUST_DMG = 0.75f;
+        public static float WGT_1H_LENGTH = 1.50f;
+        public static float WGT_1H_HANDLE = 1.00f;
         public static float WGT_1H_WGT = 2.00f;
-        public static float WGT_2H_SLASH_DMG = 1.75f;
-        public static float WGT_2H_THRUST_DMG = 0.25f;
-        public static float WGT_2H_LENGTH = 1.75f;
-        public static float WGT_2H_HANDLE = 1.25f;
+        public static float WGT_2H_SLASH_DMG = 2.25f;
+        public static float WGT_2H_THRUST_DMG = 0.75f;
+        public static float WGT_2H_LENGTH = 1.50f;
+        public static float WGT_2H_HANDLE = 1.00f;
         public static float WGT_2H_WGT = 2.00f;
         public static float WGT_BOW_DMG = 1.0f;
         public static float WGT_XBOW_DMG = 1.0f;
@@ -185,7 +185,7 @@ namespace AutoArmorUpgrade {
                 if (bow.PrimaryWeapon is WeaponComponentData bowData) {
                     float dmg = element.GetModifiedMissileDamageForUsage(0) * WGT_BOW_DMG;
                     float spd = element.GetModifiedMissileSpeedForUsage(0) * 0.01f;
-                    float acc = bowData.Accuracy * 0.02f;
+                    float acc = bowData.Accuracy * 0.02f; // double percentage
                     float rof = bowData.Handling * 0.01f;
                     return dmg * (spd + acc + rof);
                 }
@@ -205,7 +205,7 @@ namespace AutoArmorUpgrade {
                 if (bow.PrimaryWeapon is WeaponComponentData bowData) {
                     float dmg = element.GetModifiedMissileDamageForUsage(0) * WGT_XBOW_DMG;
                     float spd = element.GetModifiedMissileSpeedForUsage(0) * 0.01f;
-                    float acc = bowData.Accuracy * 0.02f;
+                    float acc = bowData.Accuracy * 0.02f; // double percentage
                     float rof = bowData.Handling * 0.01f;
                     return dmg * (spd + acc + rof);
                 }
@@ -352,6 +352,30 @@ namespace AutoArmorUpgrade {
                 return (dmg * spd) * cnt;
             }
             return -1f;
+        }
+
+
+        /// <summary>
+        /// Returns true for item types that should be bucketed by WeaponClass sub-type
+        /// (i.e. types where two items can share the same ItemTypeEnum but be fundamentally
+        /// different weapon categories — sword vs axe, bow vs crossbow, etc.).
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool IsWeaponType(ItemObject.ItemTypeEnum type) {
+            switch (type) {
+                case ItemObject.ItemTypeEnum.OneHandedWeapon:
+                case ItemObject.ItemTypeEnum.TwoHandedWeapon:
+                case ItemObject.ItemTypeEnum.Polearm:
+                case ItemObject.ItemTypeEnum.Bow:
+                case ItemObject.ItemTypeEnum.Crossbow:
+                case ItemObject.ItemTypeEnum.Thrown:
+                case ItemObject.ItemTypeEnum.Shield:
+                case ItemObject.ItemTypeEnum.Arrows:
+                case ItemObject.ItemTypeEnum.Bolts:
+                    return true;
+                default:
+                    return false;
+            }
         }
 
 

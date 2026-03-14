@@ -101,6 +101,9 @@
     <Content Include="Module.xml" />
     <Content Include="SubModule.xml" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
     <PostBuildEvent>SET "MOD_DIR=$(ProjectDir)Modules\AutoArmorUpgrade\"

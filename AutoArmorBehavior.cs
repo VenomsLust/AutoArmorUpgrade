@@ -10,6 +10,28 @@ using TaleWorlds.Library;
 
 
 namespace AutoArmorUpgrade {
+
+
+    /// <summary>
+    /// Composite key used to bucket weapon items by both their item type (OneHandedWeapon, TwoHandedWeapon, etc.)
+    /// and their specific weapon class (Sword, Axe, Mace, etc.), so heroes are only upgraded within the same
+    /// weapon sub-type and never have their sword swapped for an axe.
+    /// </summary>
+    internal readonly struct WeaponBucketKey : IEquatable<WeaponBucketKey> {
+        public readonly ItemObject.ItemTypeEnum ItemType;
+        public readonly WeaponClass WeaponClass;
+
+        public WeaponBucketKey(ItemObject.ItemTypeEnum itemType, WeaponClass weaponClass) {
+            ItemType = itemType;
+            WeaponClass = weaponClass;
+        }
+
+        public bool Equals(WeaponBucketKey other) => ItemType == other.ItemType && WeaponClass == other.WeaponClass;
+        public override bool Equals(object obj) => obj is WeaponBucketKey other && Equals(other);
+        public override int GetHashCode() => ((int)ItemType ^ (int)WeaponClass);
+    }
+
+
     /// <summary>
     /// A campaign behavior that automatically upgrades the armor of heroes in the main party when collecting loot.
     /// This behavior listens for loot collection events and evaluates available armor items against currently equipped gear,
@@ -102,26 +124,53 @@ namespace AutoArmorUpgrade {
                     return;
                 }
 
+                // Armor, horse, and ammo items are bucketed by ItemTypeEnum alone (no sub-type needed).
+                Dictionary<ItemObject.ItemTypeEnum, List<EquipmentElement>> armorBuckets = new Dictionary<ItemObject.ItemTypeEnum, List<EquipmentElement>>();
+
+                // Weapon items are bucketed by (ItemTypeEnum, WeaponClass) so that swords never
+                // compete with axes, maces, etc. even though they share the same ItemTypeEnum.
+                Dictionary<WeaponBucketKey, List<EquipmentElement>> weaponBuckets = new Dictionary<WeaponBucketKey, List<EquipmentElement>>();
+
                 Dictionary<ItemObject.ItemTypeEnum, List<EquipmentElement>> buckets = new Dictionary<ItemObject.ItemTypeEnum, List<EquipmentElement>>();
 
-                // First, we loop through the loot and organize all armor pieces by their type (head, body, leg, gloves, cape)
                 foreach (ItemRosterElement element in party.ItemRoster) {
-                    if (0 < element.Amount && element.EquipmentElement.Item is ItemObject item) {
-                        ItemObject.ItemTypeEnum type = item.ItemType;
-                        if (type == ItemObject.ItemTypeEnum.Invalid) {
-                            continue; // Skip items that don't have a valid type
-                        }
+                    if (element.Amount <= 0 || !(element.EquipmentElement.Item is ItemObject item)) {
+                        continue;
+                    }
 
-                        if (!buckets.ContainsKey(type)) {
-                            buckets[type] = new List<EquipmentElement>();
+                    ItemObject.ItemTypeEnum type = item.ItemType;
+                    if (type == ItemObject.ItemTypeEnum.Invalid) {
+                        continue;
+                    }
+
+                    if (EquipmentScores.IsWeaponType(type)) {
+                        WeaponClass wc = item.WeaponComponent?.PrimaryWeapon?.WeaponClass ?? WeaponClass.Undefined;
+                        WeaponBucketKey key = new WeaponBucketKey(type, wc);
+                        if (!weaponBuckets.ContainsKey(key)) {
+                            weaponBuckets[key] = new List<EquipmentElement>();
                         }
-                        buckets[type].Add(element.EquipmentElement);
+                        weaponBuckets[key].Add(element.EquipmentElement);
+                    } else {
+                        if (!armorBuckets.ContainsKey(type)) {
+                            armorBuckets[type] = new List<EquipmentElement>();
+                        }
+                        armorBuckets[type].Add(element.EquipmentElement);
                     }
                 }
 
-                foreach (KeyValuePair<ItemObject.ItemTypeEnum, List<EquipmentElement>> kvp in buckets) {
+                // Sort armor/horse buckets descending by score.
+                foreach (KeyValuePair<ItemObject.ItemTypeEnum, List<EquipmentElement>> kvp in armorBuckets) {
                     if (1 < kvp.Value.Count) {
                         if (EquipmentScores.GetScoreFunc(kvp.Key) is Func<EquipmentElement, float> score) {
+                            kvp.Value.Sort((a, b) => score(b).CompareTo(score(a)));
+                        }
+                    }
+                }
+
+                // Sort weapon buckets descending by score.
+                foreach (KeyValuePair<WeaponBucketKey, List<EquipmentElement>> kvp in weaponBuckets) {
+                    if (1 < kvp.Value.Count) {
+                        if (EquipmentScores.GetScoreFunc(kvp.Key.ItemType) is Func<EquipmentElement, float> score) {
                             kvp.Value.Sort((a, b) => score(b).CompareTo(score(a)));
                         }
                     }
@@ -130,37 +179,38 @@ namespace AutoArmorUpgrade {
                 for (int i = 0; i < party.MemberRoster.Count; i++) {
                     TroopRosterElement member = party.MemberRoster.GetElementCopyAtIndex(i);
                     if (member.Character?.HeroObject is Hero hero && hero.IsAlive) {
-                        if (buckets.TryGetValue(ItemObject.ItemTypeEnum.HeadArmor, out var headBucket)) {
+                        if (armorBuckets.TryGetValue(ItemObject.ItemTypeEnum.HeadArmor, out var headBucket)) {
                             UpgradeHeroArmor(hero, party.ItemRoster, headBucket, EquipmentIndex.Head);
                         }
-                        if (buckets.TryGetValue(ItemObject.ItemTypeEnum.BodyArmor, out var bodyBucket)) {
+                        if (armorBuckets.TryGetValue(ItemObject.ItemTypeEnum.BodyArmor, out var bodyBucket)) {
                             UpgradeHeroArmor(hero, party.ItemRoster, bodyBucket, EquipmentIndex.Body);
                         }
-                        if (buckets.TryGetValue(ItemObject.ItemTypeEnum.LegArmor, out var legBucket)) {
+                        if (armorBuckets.TryGetValue(ItemObject.ItemTypeEnum.LegArmor, out var legBucket)) {
                             UpgradeHeroArmor(hero, party.ItemRoster, legBucket, EquipmentIndex.Leg);
                         }
-                        if (buckets.TryGetValue(ItemObject.ItemTypeEnum.HandArmor, out var handBucket)) {
+                        if (armorBuckets.TryGetValue(ItemObject.ItemTypeEnum.HandArmor, out var handBucket)) {
                             UpgradeHeroArmor(hero, party.ItemRoster, handBucket, EquipmentIndex.Gloves);
                         }
-                        if (buckets.TryGetValue(ItemObject.ItemTypeEnum.Cape, out var capeBucket)) {
+                        if (armorBuckets.TryGetValue(ItemObject.ItemTypeEnum.Cape, out var capeBucket)) {
                             UpgradeHeroArmor(hero, party.ItemRoster, capeBucket, EquipmentIndex.Cape);
                         }
 
                         if (!hero.BattleEquipment[EquipmentIndex.Horse].IsEmpty) {
-                            if (buckets.TryGetValue(ItemObject.ItemTypeEnum.HorseHarness, out var horseArmorBucket)) {
+                            if (armorBuckets.TryGetValue(ItemObject.ItemTypeEnum.HorseHarness, out var horseArmorBucket)) {
                                 UpgradeHeroArmor(hero, party.ItemRoster, horseArmorBucket, EquipmentIndex.HorseHarness);
                             }
-                            if (buckets.TryGetValue(ItemObject.ItemTypeEnum.Horse, out var horseBucket)) {
+                            if (armorBuckets.TryGetValue(ItemObject.ItemTypeEnum.Horse, out var horseBucket)) {
                                 UpgradeHeroHorse(hero, party.ItemRoster, horseBucket);
                             }
                         }
 
-                        UpgradeHeroWeaponSlot(hero, party.ItemRoster, buckets, EquipmentIndex.Weapon0);
-                        UpgradeHeroWeaponSlot(hero, party.ItemRoster, buckets, EquipmentIndex.Weapon1);
-                        UpgradeHeroWeaponSlot(hero, party.ItemRoster, buckets, EquipmentIndex.Weapon2);
-                        UpgradeHeroWeaponSlot(hero, party.ItemRoster, buckets, EquipmentIndex.Weapon3);
+                        UpgradeHeroWeaponSlot(hero, party.ItemRoster, weaponBuckets, EquipmentIndex.Weapon0);
+                        UpgradeHeroWeaponSlot(hero, party.ItemRoster, weaponBuckets, EquipmentIndex.Weapon1);
+                        UpgradeHeroWeaponSlot(hero, party.ItemRoster, weaponBuckets, EquipmentIndex.Weapon2);
+                        UpgradeHeroWeaponSlot(hero, party.ItemRoster, weaponBuckets, EquipmentIndex.Weapon3);
                     }
                 }
+
             } catch (Exception e) {
                 InformationManager.DisplayMessage(new InformationMessage($"Exception caught in UpgradeAllHeroes! {e.Message}.", Color.FromUint(0xFFFFFF00)));
             }
@@ -275,13 +325,15 @@ namespace AutoArmorUpgrade {
         /// <param name="inventory"></param>
         /// <param name="buckets"></param>
         /// <param name="slot"></param>
-        private void UpgradeHeroWeaponSlot(Hero hero, ItemRoster inventory, Dictionary<ItemObject.ItemTypeEnum, List<EquipmentElement>> buckets, EquipmentIndex slot) {
+        private void UpgradeHeroWeaponSlot(Hero hero, ItemRoster inventory, Dictionary<WeaponBucketKey, List<EquipmentElement>> buckets, EquipmentIndex slot) {
             try {
                 EquipmentElement existing = hero.BattleEquipment[slot];
                 if (existing.IsEmpty || existing.Item == null) {
                     return;
                 }
-                if (buckets.TryGetValue(existing.Item.ItemType, out List<EquipmentElement> sorted)) {
+                WeaponClass wc = existing.Item.WeaponComponent?.PrimaryWeapon?.WeaponClass ?? WeaponClass.Undefined;
+                WeaponBucketKey key = new WeaponBucketKey(existing.Item.ItemType, wc);
+                if (buckets.TryGetValue(key, out List<EquipmentElement> sorted)) {
                     if (0 < sorted.Count) {
                         if (existing.Item.ItemType == ItemObject.ItemTypeEnum.Bow) {
                             UpgradeHeroBow(hero, inventory, sorted, existing, slot);
@@ -402,8 +454,7 @@ namespace AutoArmorUpgrade {
         /// <summary>
         /// Synchronizes data with the specified data store. This implementation performs no operation.
         /// </summary>
-        /// <remarks>Override this method in a derived class to provide custom synchronization
-        /// logic.</remarks>
+        /// <remarks>Override this method in a derived class to provide custom synchronization logic.</remarks>
         /// <param name="dataStore">The data store to synchronize with. This parameter is ignored in this implementation.</param>
         public override void SyncData(IDataStore dataStore) {
             // noop

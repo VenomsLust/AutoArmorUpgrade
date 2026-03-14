@@ -2,7 +2,7 @@
 <Module>
 	<Name value="Auto-Armor Upgrade"/>
 	<Id value="AutoArmorUpgrade"/>
-	<Version value="v1.1.2.0"/>
+	<Version value="v1.1.4.0"/>
 	<Official value="false"/>
 	<ModuleCategory value="Singleplayer"/>
 	<ModuleType value="Community"/>
