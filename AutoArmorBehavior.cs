@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.Eventing.Reader;
+using System.Xml.Linq;
 using TaleWorlds.CampaignSystem;
 using TaleWorlds.CampaignSystem.CharacterDevelopment;
 using TaleWorlds.CampaignSystem.GameMenus;
@@ -10,6 +12,12 @@ using TaleWorlds.Library;
 
 
 namespace AutoArmorUpgrade {
+
+    internal enum MountFamily {
+        Unknown,
+        Horse,
+        Camel,
+    }
 
 
     /// <summary>
@@ -111,6 +119,24 @@ namespace AutoArmorUpgrade {
 
 
         /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="element"></param>
+        /// <returns></returns>
+        internal static MountFamily GetMountFamily(EquipmentElement element) {
+            if (element.Item is ItemObject item) {
+                if (item.HorseComponent is HorseComponent mount) {
+                    return mount.Monster.MonsterUsage.Contains("camel") ? MountFamily.Camel : MountFamily.Horse;
+                } else if (item.ArmorComponent is ArmorComponent armor) {
+                    return item.StringId.Contains("camel") ? MountFamily.Camel : MountFamily.Horse;
+                }
+            }
+
+            return MountFamily.Unknown;
+        }
+
+
+        /// <summary>
         /// Upgrades the equipment of all hero characters in the specified party using available armor items from the
         /// party's item roster.
         /// </summary>
@@ -196,11 +222,13 @@ namespace AutoArmorUpgrade {
                         }
 
                         if (!hero.BattleEquipment[EquipmentIndex.Horse].IsEmpty) {
-                            if (armorBuckets.TryGetValue(ItemObject.ItemTypeEnum.HorseHarness, out var horseArmorBucket)) {
-                                UpgradeHeroArmor(hero, party.ItemRoster, horseArmorBucket, EquipmentIndex.HorseHarness);
-                            }
                             if (armorBuckets.TryGetValue(ItemObject.ItemTypeEnum.Horse, out var horseBucket)) {
                                 UpgradeHeroHorse(hero, party.ItemRoster, horseBucket);
+                            }
+                        }
+                        if (!hero.BattleEquipment[EquipmentIndex.HorseHarness].IsEmpty) {
+                            if (armorBuckets.TryGetValue(ItemObject.ItemTypeEnum.HorseHarness, out var horseArmorBucket)) {
+                                UpgradeHeroHorseArmor(hero, party.ItemRoster, horseArmorBucket, EquipmentIndex.HorseHarness);
                             }
                         }
 
@@ -284,6 +312,39 @@ namespace AutoArmorUpgrade {
 
 
         /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="hero"></param>
+        /// <param name="inventory"></param>
+        /// <param name="sorted"></param>
+        /// <param name="slot"></param>
+        private static void UpgradeHeroHorseArmor(Hero hero, ItemRoster inventory, List<EquipmentElement> sorted, EquipmentIndex slot) {
+            try {
+                if (0 < sorted.Count) {
+                    EquipmentElement existing = hero.BattleEquipment[slot];
+                    MountFamily eFamily = GetMountFamily(existing);
+                    if (EquipmentScores.GetScoreFunc(existing.Item.ItemType) is Func<EquipmentElement, float> score) {
+                        for (int i = 0; i < sorted.Count; i++) {
+                            if (sorted[i] is EquipmentElement element) {
+                                if (score(existing) < score(element)) {
+                                    if (eFamily == GetMountFamily(element)) {
+                                        DoSwap(hero, element, inventory, sorted, slot);
+                                        break;
+                                    }
+                                } else {
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                InformationManager.DisplayMessage(new InformationMessage($"Exception caught in UpgradeHeroHorseArmor! {e.Message}.", Color.FromUint(0xFFFFFF00)));
+            }
+        }
+
+
+        /// <summary>
         /// Upgrades the specified hero's horse to the highest-scoring available mount from the sorted horse list,
         /// updating the hero's equipment and the item roster accordingly.
         /// </summary>
@@ -296,14 +357,17 @@ namespace AutoArmorUpgrade {
             try {
                 if (0 < sorted.Count) {
                     EquipmentElement existing = hero.BattleEquipment[EquipmentIndex.Horse];
+                    MountFamily eFamily = GetMountFamily(existing);
                     if (EquipmentScores.GetScoreFunc(ItemObject.ItemTypeEnum.Horse) is Func<EquipmentElement, float> getScore) {
                         float currentScore = getScore(existing);
                         for (int i = 0; i < sorted.Count; i++) {
                             if (sorted[i] is EquipmentElement element) {
                                 if (currentScore < getScore(element)) {
-                                    if (element.Item.Difficulty <= hero.GetSkillValue(DefaultSkills.Riding)) {
-                                        DoSwap(hero, element, inventory, sorted, EquipmentIndex.Horse);
-                                        break;
+                                    if (eFamily == GetMountFamily(element)) {
+                                        if (element.Item.Difficulty <= hero.GetSkillValue(DefaultSkills.Riding)) {
+                                            DoSwap(hero, element, inventory, sorted, EquipmentIndex.Horse);
+                                            break;
+                                        }
                                     }
                                 } else {
                                     break;
