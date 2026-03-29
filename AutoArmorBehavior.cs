@@ -1,7 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics.Eventing.Reader;
-using System.Xml.Linq;
 using TaleWorlds.CampaignSystem;
 using TaleWorlds.CampaignSystem.CharacterDevelopment;
 using TaleWorlds.CampaignSystem.GameMenus;
@@ -119,10 +117,10 @@ namespace AutoArmorUpgrade {
 
 
         /// <summary>
-        /// 
+        /// Determines the mount family (horse or camel) for a given equipment element.
         /// </summary>
-        /// <param name="element"></param>
-        /// <returns></returns>
+        /// <param name="element">The equipment element that represents a mount or mount armor.</param>
+        /// <returns>The mount family (Horse, Camel, or Unknown if the element is not a mount).</returns>
         internal static MountFamily GetMountFamily(EquipmentElement element) {
             if (element.Item is ItemObject item) {
                 if (item.HorseComponent is HorseComponent mount) {
@@ -246,10 +244,12 @@ namespace AutoArmorUpgrade {
 
 
         /// <summary>
-        /// 
+        /// Inserts an equipment element into a sorted list maintaining descending score order.
+        /// Uses binary search to find the insertion position, ensuring O(log n) search time.
         /// </summary>
-        /// <param name="list"></param>
-        /// <param name="element"></param>
+        /// <param name="list">The sorted list to insert into.</param>
+        /// <param name="element">The equipment element to insert.</param>
+        /// <param name="getScore">The scoring function used to determine element value and maintain sort order.</param>
         private static void SortedInsert(List<EquipmentElement> list, EquipmentElement element, Func<EquipmentElement, float> getScore) {
             try {
                 if (list.Count == 0) {
@@ -289,12 +289,12 @@ namespace AutoArmorUpgrade {
 
 
         /// <summary>
-        /// 
+        /// Attempts to upgrade a hero's armor in a specific slot by comparing the currently equipped item against the best available option.
         /// </summary>
-        /// <param name="hero"></param>
-        /// <param name="inventory"></param>
-        /// <param name="sorted"></param>
-        /// <param name="slot"></param>
+        /// <param name="hero">The hero whose armor will be upgraded.</param>
+        /// <param name="inventory">The item roster to manage equipment changes.</param>
+        /// <param name="sorted">The list of available armor items, pre-sorted by score in descending order.</param>
+        /// <param name="slot">The equipment slot to potentially upgrade (Head, Body, Leg, Gloves, or Cape).</param>
         private static void UpgradeHeroArmor(Hero hero, ItemRoster inventory, List<EquipmentElement> sorted, EquipmentIndex slot) {
             try {
                 if (0 < sorted.Count && sorted[0] is EquipmentElement top) {
@@ -312,12 +312,13 @@ namespace AutoArmorUpgrade {
 
 
         /// <summary>
-        /// 
+        /// Attempts to upgrade a hero's horse armor by finding the best-matching harness for their current mount family.
+        /// Only upgrades if the family matches (horse harness for horses, camel harness for camels).
         /// </summary>
-        /// <param name="hero"></param>
-        /// <param name="inventory"></param>
-        /// <param name="sorted"></param>
-        /// <param name="slot"></param>
+        /// <param name="hero">The hero whose horse armor will be upgraded.</param>
+        /// <param name="inventory">The item roster to manage equipment changes.</param>
+        /// <param name="sorted">The list of available horse armor items, pre-sorted by score in descending order.</param>
+        /// <param name="slot">The equipment slot for horse armor (HorseHarness).</param>
         private static void UpgradeHeroHorseArmor(Hero hero, ItemRoster inventory, List<EquipmentElement> sorted, EquipmentIndex slot) {
             try {
                 if (0 < sorted.Count) {
@@ -383,12 +384,13 @@ namespace AutoArmorUpgrade {
 
 
         /// <summary>
-        /// 
+        /// Attempts to upgrade a hero's currently equipped weapon in a specific slot by finding a better option from an available list.
+        /// Respects the hero's skill level requirement and weapon type matching.
         /// </summary>
-        /// <param name="hero"></param>
-        /// <param name="inventory"></param>
-        /// <param name="buckets"></param>
-        /// <param name="slot"></param>
+        /// <param name="hero">The hero whose weapon will be upgraded.</param>
+        /// <param name="inventory">The item roster to manage equipment changes.</param>
+        /// <param name="buckets">The weapon buckets grouped by (ItemTypeEnum, WeaponClass) to find compatible weapons.</param>
+        /// <param name="slot">The weapon slot to potentially upgrade (Weapon0, Weapon1, Weapon2, or Weapon3).</param>
         private void UpgradeHeroWeaponSlot(Hero hero, ItemRoster inventory, Dictionary<WeaponBucketKey, List<EquipmentElement>> buckets, EquipmentIndex slot) {
             try {
                 EquipmentElement existing = hero.BattleEquipment[slot];
@@ -413,13 +415,14 @@ namespace AutoArmorUpgrade {
 
 
         /// <summary>
-        /// 
+        /// Attempts to upgrade a hero's currently equipped weapon by finding a better option from a sorted list of the same weapon type.
+        /// Verifies the hero meets the difficulty requirement before performing the upgrade.
         /// </summary>
-        /// <param name="hero"></param>
-        /// <param name="inventory"></param>
-        /// <param name="sorted"></param>
-        /// <param name="existing"></param>
-        /// <param name="slot"></param>
+        /// <param name="hero">The hero whose weapon will be upgraded.</param>
+        /// <param name="inventory">The item roster to manage equipment changes.</param>
+        /// <param name="sorted">The list of available weapons of the same type, pre-sorted by score in descending order.</param>
+        /// <param name="existing">The hero's currently equipped weapon in this slot.</param>
+        /// <param name="slot">The weapon slot to potentially upgrade.</param>
         private void UpgradeHeroWeaponSlot(Hero hero, ItemRoster inventory, List<EquipmentElement> sorted, EquipmentElement existing, EquipmentIndex slot) {
             try {
                 if (EquipmentScores.GetScoreFunc(existing.Item.ItemType) is Func<EquipmentElement, float> getScore) {
@@ -444,13 +447,13 @@ namespace AutoArmorUpgrade {
 
 
         /// <summary>
-        /// 
+        /// Attempts to upgrade a hero's bow with special logic that prevents equipping longbows while mounted (unless the hero has HorseMaster perk).
         /// </summary>
-        /// <param name="hero"></param>
-        /// <param name="inventory"></param>
-        /// <param name="sorted"></param>
-        /// <param name="existing"></param>
-        /// <param name="slot"></param>
+        /// <param name="hero">The hero whose bow will be upgraded.</param>
+        /// <param name="inventory">The item roster to manage equipment changes.</param>
+        /// <param name="sorted">The list of available bows, pre-sorted by score in descending order.</param>
+        /// <param name="existing">The hero's currently equipped bow.</param>
+        /// <param name="slot">The weapon slot where the bow is equipped.</param>
         private void UpgradeHeroBow(Hero hero, ItemRoster inventory, List<EquipmentElement> sorted, EquipmentElement existing, EquipmentIndex slot) {
             try {
                 int heroSkill = hero.GetSkillValue(DefaultSkills.Bow);
@@ -478,13 +481,14 @@ namespace AutoArmorUpgrade {
 
 
         /// <summary>
-        /// 
+        /// Performs an equipment swap by equipping a new item and returning the old item to inventory and sorted list.
+        /// Displays appropriate feedback messages to the player about the equipment change.
         /// </summary>
-        /// <param name="hero"></param>
-        /// <param name="element"></param>
-        /// <param name="inventory"></param>
-        /// <param name="sorted"></param>
-        /// <param name="slot"></param>
+        /// <param name="hero">The hero whose equipment will be swapped.</param>
+        /// <param name="element">The new equipment element to equip.</param>
+        /// <param name="inventory">The item roster to manage equipment changes.</param>
+        /// <param name="sorted">The sorted list to remove the new item from and re-insert the old item into.</param>
+        /// <param name="slot">The equipment slot being swapped.</param>
         private static void DoSwap(Hero hero, EquipmentElement element, ItemRoster inventory, List<EquipmentElement> sorted, EquipmentIndex slot) {
             try {
                 EquipmentElement existing = hero.BattleEquipment[slot];
@@ -521,7 +525,7 @@ namespace AutoArmorUpgrade {
         /// <remarks>Override this method in a derived class to provide custom synchronization logic.</remarks>
         /// <param name="dataStore">The data store to synchronize with. This parameter is ignored in this implementation.</param>
         public override void SyncData(IDataStore dataStore) {
-            // noop
+            EquipmentScores.LoadWeightsFromJson();
         }
     }
 }
